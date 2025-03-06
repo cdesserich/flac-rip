@@ -93,11 +93,11 @@ while :; do
 		if [ -z "$_arg_output_directory" -a "$#" -gt 0 ]; then _arg_output_directory=${1%%+(/)}; shift; continue; fi
 		break
 	esac
-	
+
 	shift
 done
 
-# TODO Use input directory? these should be posistional.
+# TODO Use input directory? these should be positional.
 if [ -z "$_arg_artist_name" ]; then required_error "-a, --artist-name"; fi
 if [ -z "$_arg_album_name" ]; then required_error "-l, --album-name"; fi
 
@@ -120,7 +120,7 @@ done <<< "$(for file in "$_arg_input_directory"/*.aiff; do basename "$file"; don
 
 
 track_names=()
-IFS=$'\n' read -d '' -r -a track_names < /Users/cdesserich/etc/flac-rip
+IFS=$'\n' read -d '' -r -a track_names < "${HOME}/etc/flac-rip"
 if [ "${#input_files[@]}" -ne "${#track_names[@]}" ]; then
 	printf "${RED}ERROR:${NC} Number of track file names is not the same as the number of tracks.\n" >&2;
 	exit 1
@@ -173,4 +173,3 @@ for i in "${!input_files[@]}"; do
 done
 
 printf "\n${GREEN}INFO:${NC} Done.\n"
-

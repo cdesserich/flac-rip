@@ -1,0 +1,97 @@
+#!/bin/sh
+
+function show_help() {
+	printf "\nUSAGE: alac-convert input_directory output_directory\n\n"
+	printf "OPTIONS:\n"
+	printf " -h, --help              Show help\n"
+	printf " -f, --force             Overwrite output files\n"
+}
+
+function required_error() {
+	printf "${RED}ERROR:${NC} %s requires a non-empty option argument.\n" "$1" >&2
+	exit 1
+}
+
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
+
+_arguments=("-f" "--force")
+_arg_force=0
+_arg_input_directory=''
+_arg_output_directory=''
+
+echo
+
+while :; do
+	case $1 in
+		-h|--help)
+		show_help
+		exit
+		;;
+	-f|--force)
+		_arg_force=1
+		;;
+	-?*)
+		printf "${YELLOW}WARN:${NC} Unknown option (ignored): %s\n" "$1" >&2
+		;;
+	*)
+		if [ -z "$_arg_input_directory" -a "$#" -gt 0 ]; then _arg_input_directory=${1%%+(/)}; shift; continue; fi
+		if [ -z "$_arg_output_directory" -a "$#" -gt 0 ]; then _arg_output_directory=${1%%+(/)}; shift; continue; fi
+		break
+	esac
+
+	shift
+done
+
+if [ ! -d "$_arg_input_directory" ]; then printf "${RED}ERROR:${NC} Input directory doesn't exist.\n" >&2; exit 1; fi
+if [ ! -d "$_arg_output_directory" ]; then printf "${RED}ERROR:${NC} Output directory doesn't exist.\n" >&2; exit 1; fi
+
+album_name=${_arg_input_directory%/}
+album_name=${album_name##*/}
+
+artist_name=${_arg_input_directory%/}
+artist_name=${artist_name%/$album_name}
+artist_name=${artist_name##*/}
+
+shopt -s extglob
+_arg_input_directory="$(cd "$_arg_input_directory" 2> /dev/null && pwd -P)"
+_arg_output_directory="$(cd "$_arg_output_directory" 2> /dev/null && pwd -P)/$artist_name/$album_name"
+
+if [ ! -d "$_arg_output_directory" ]; then
+	printf "${GREEN}INFO:${NC} Creating artist/album directory %s\n" "$_arg_output_directory"
+	mkdir -p "$_arg_output_directory"
+fi
+
+input_files=()
+while read -r line; do
+	input_files+=("$line")
+done <<< "$(for file in "$_arg_input_directory"/*.flac; do basename "$file"; done | sort -n)"
+
+output_files=()
+for input_file in "${input_files[@]}"; do
+	output_files+=("$(basename "${input_file}" .flac).m4a")
+done
+
+force=''
+if [ "$_arg_force" -eq 0 ]; then
+	for output_file in "${output_files[@]}"; do
+		if [ -f "$_arg_output_directory/$output_file" ]; then
+			printf "${RED}ERROR:${NC} One or more output files already exist.\n" >&2
+			exit 1
+		fi
+	done
+else
+	force='-f'
+fi
+
+for i in "${!input_files[@]}"; do
+	input_file="$_arg_input_directory/${input_files[$i]}"
+	output_file="$_arg_output_directory/${output_files[$i]}"
+	printf "\n${GREEN}INFO:${NC} Converting %s to %s\n" "$input_file" "$output_file"
+  xld "$input_file" -o "$output_file" -f alac
+done
+
+printf "\n${GREEN}INFO:${NC} Done.\n"
